@@ -1,0 +1,23 @@
+@echo off
+REM ==================================================================
+REM  Spotify -> YouTube Music otomatik senkronizasyon (Windows)
+REM  Gorev Zamanlayici (Task Scheduler) bunu 6 saatte bir cagiracak.
+REM ==================================================================
+
+REM Konsolu UTF-8 yap (Turkce/Yunanca karakterler icin)
+chcp 65001 >nul
+
+REM Python ciktisini da UTF-8'e zorla
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
+
+REM Bu satiri kendi proje klasorunun TAM yoluyla degistir:
+cd /d C:\ytmusic-sync
+
+REM Sanal ortami aktif et (venv Windows'ta farkli yolda)
+call venv\Scripts\activate.bat
+
+REM Tum listeleri senkronize et (sadece ekleme/silme), ciktiyi log'a yaz
+python sync.py >> sync.log 2>&1
+
+REM Bitti

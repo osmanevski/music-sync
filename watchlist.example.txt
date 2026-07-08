@@ -1,0 +1,8 @@
+# Takip edilecek Spotify playlist ID'leri.
+# Bu dosyayi 'watchlist.txt' olarak kopyalayip kendi id'lerini ekle.
+# Her satira BIR id yaz. # ile baslayan satirlar ve bos satirlar yok sayilir.
+# Id'leri gormek icin: python sync.py --list
+#
+# Ornek:
+# 7EH9d6HsRfgZVMsQhGhEqp
+# 22fTlkozEmPwN5IiVSX7tP
