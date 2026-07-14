@@ -171,9 +171,26 @@ def do_import(sp, yt, pid):
         send("Bitti.")
 
 
-def do_dupes(yt, pid):
+def do_dupes(sp, yt, pid):
+    # pid bir SPOTIFY liste id'si; YouTube API'sine YouTube liste id'si vermeliyiz.
+    # Once Spotify listesinin adini bul, sonra o ada karsilik gelen YT listesini cevir.
+    playlists = spc.list_playlists(sp)
+    sp_pl = next((x for x in playlists if x["id"] == pid), None)
+    if not sp_pl:
+        send("Liste bulunamadi.")
+        return
+    name = sp_pl["name"]
+    # DB'de kayitli eslesme varsa onu kullan; yoksa (ya da ilk-gorulen yer tutucu
+    # olarak Spotify id'si kaydedildiyse) isimden YouTube listesini bul.
+    yt_pid = db.get_yt_playlist_for_spotify(pid)
+    if not yt_pid or yt_pid == pid:
+        yt_pid, _existed = sync_module._find_playlist(yt, name)
+    if not yt_pid:
+        send(f"'{name}' icin YouTube listesi bulunamadi "
+             f"(bu liste henuz senkronlanmamis olabilir).")
+        return
     try:
-        pl = yt.get_playlist(pid, limit=None)
+        pl = yt.get_playlist(yt_pid, limit=None)
     except Exception as e:
         # Bos liste ya da okunamayan liste -> ytmusicapi 'contents' hatasi verebilir
         msg = str(e)
@@ -297,7 +314,7 @@ def handle_callback(data, callback_id, sp, yt):
     elif data.startswith("import:"):
         do_import(sp, yt, data.split(":", 1)[1])
     elif data.startswith("dupes:"):
-        do_dupes(yt, data.split(":", 1)[1])
+        do_dupes(sp, yt, data.split(":", 1)[1])
     elif data.startswith("watch:"):
         pid = data.split(":", 1)[1]
         if sync_module.add_to_watchlist(pid):
