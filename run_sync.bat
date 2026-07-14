@@ -1,7 +1,7 @@
 @echo off
 REM ==================================================================
 REM  Spotify -> YouTube Music otomatik senkronizasyon (Windows)
-REM  Gorev Zamanlayici (Task Scheduler) bunu 6 saatte bir cagiracak.
+REM  Gorev Zamanlayici (Task Scheduler) bunu her gun 03:00'te cagirir.
 REM ==================================================================
 
 REM Konsolu UTF-8 yap (Turkce/Yunanca karakterler icin)
@@ -17,7 +17,7 @@ cd /d C:\ytmusic-sync
 REM Sanal ortami aktif et (venv Windows'ta farkli yolda)
 call venv\Scripts\activate.bat
 
-REM Tum listeleri senkronize et (sadece ekleme/silme), ciktiyi log'a yaz
+REM watchlist'teki listeleri senkronize et (ekleme/silme), ciktiyi log'a yaz
 python sync.py >> sync.log 2>&1
 
 REM Bitti
