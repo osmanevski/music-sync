@@ -129,7 +129,15 @@ def add_to_playlist(yt, playlist_id, video_id, retries=2):
     for attempt in range(retries + 1):
         try:
             resp = yt.add_playlist_items(playlist_id, [video_id], duplicates=False)
-            status = resp.get("status", "") if isinstance(resp, dict) else ""
+            # ytmusicapi sozlesmesi donusu str | dict olabilir (imza: str | JsonDict).
+            # Ikisini de normalize et ki duz string "STATUS_SUCCEEDED" yanlislikla
+            # basarisiz sayilip gecerli ekleme supheliye dusmesin.
+            if isinstance(resp, str):
+                status = resp
+            elif isinstance(resp, dict):
+                status = resp.get("status", "")
+            else:
+                status = ""
             # SADECE gercek basari basarili sayilir. Aksi halde sarki DB'ye
             # "synced" yazilip sessizce kaybolur (bir daha denenmez).
             if "SUCCEEDED" in status:
