@@ -6,6 +6,7 @@ Bos ise sessizce hicbir sey yapmaz (program calismaya devam eder).
 import ssl
 import urllib.request
 import urllib.parse
+import certifi
 import config
 
 
@@ -24,12 +25,11 @@ def send(message):
         "disable_web_page_preview": "true",
     }).encode("utf-8")
 
-    # Bazi sunucu aglarinda (kurumsal guvenlik duvari/antivirus) HTTPS araya
-    # girip kendi sertifikasiyla imzaliyor; Python buna guvenmiyor.
-    # Bildirim hassas veri tasimadigi icin bu istek icin dogrulamayi esnetiyoruz.
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    # SSL dogrulamasi ACIK. Windows sistem deposu bu sunucuda bozuk/self-signed
+    # bir kok yuzunden zinciri kuramiyordu; certifi'nin CA paketini kullaniyoruz.
+    # Boylece hostname + sertifika zinciri dogrulanir (MITM'e karsi korumali).
+    # (Not: URL'de bot token gidiyor, bu yuzden dogrulama sart.)
+    ctx = ssl.create_default_context(cafile=certifi.where())
 
     try:
         req = urllib.request.Request(url, data=data)

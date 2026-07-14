@@ -11,6 +11,7 @@ import json
 import time
 import urllib.request
 import urllib.parse
+import certifi
 from collections import defaultdict
 
 import config
@@ -20,9 +21,10 @@ import ytmusic_client as ytc
 import matcher
 import sync as sync_module
 
-_CTX = ssl.create_default_context()
-_CTX.check_hostname = False
-_CTX.verify_mode = ssl.CERT_NONE
+# SSL dogrulamasi ACIK (certifi CA paketi ile). Windows sistem deposu bu
+# sunucuda bozuk kok yuzunden zinciri kuramiyordu; certifi cozuyor.
+# URL'de bot token gidiyor, bu yuzden dogrulama guvenlik icin sart.
+_CTX = ssl.create_default_context(cafile=certifi.where())
 
 API = f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}"
 
