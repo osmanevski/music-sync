@@ -130,9 +130,16 @@ def add_to_playlist(yt, playlist_id, video_id, retries=2):
         try:
             resp = yt.add_playlist_items(playlist_id, [video_id], duplicates=False)
             status = resp.get("status", "") if isinstance(resp, dict) else ""
-            if "SUCCEEDED" in status or resp is not None:
+            # SADECE gercek basari basarili sayilir. Aksi halde sarki DB'ye
+            # "synced" yazilip sessizce kaybolur (bir daha denenmez).
+            if "SUCCEEDED" in status:
                 return True, False
-            return True, False
+            # Basari degil: gecici olabilir, son deneme degilse tekrar dene.
+            if attempt < retries:
+                time.sleep(1.5)
+                continue
+            print(f"  ! Ekleme basarisiz (status={status!r})")
+            return False, False
         except Exception as e:
             msg = str(e)
             # 409 = zaten var / cakisma -> basarili say
