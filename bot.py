@@ -20,6 +20,7 @@ import spotify_client as spc
 import ytmusic_client as ytc
 import matcher
 import sync as sync_module
+import reverse_sync
 
 # SSL dogrulamasi ACIK (certifi CA paketi ile). Windows sistem deposu bu
 # sunucuda bozuk kok yuzunden zinciri kuramiyordu; certifi cozuyor.
@@ -73,10 +74,30 @@ def answer_callback(callback_id, text=""):
 def main_menu():
     send("🎵 <b>Ana Menu</b>\nNe yapmak istersin?", buttons=[
         [("🔄 Watchlist'i Senkronla", "sync_all")],
+        [("🔁 YouTube → Spotify", "yt_lists:0")],
         [("📋 Listeler", "lists:0")],
         [("⚠️ Supheliler", "review_start")],
         [("❓ Yardim", "help")],
     ])
+
+
+def yt_lists_menu(yt, page=0):
+    """YouTube Music listelerini ters senkron icin sayfali goster."""
+    playlists = ytc.list_playlists(yt)
+    per = 8
+    start = page * per
+    buttons = [[(p["name"][:40], f"yt_sync:{p['id']}")]
+               for p in playlists[start:start + per]]
+    nav = []
+    if page > 0:
+        nav.append(("⬅️ Onceki", f"yt_lists:{page-1}"))
+    if start + per < len(playlists):
+        nav.append(("Sonraki ➡️", f"yt_lists:{page+1}"))
+    if nav:
+        buttons.append(nav)
+    buttons.append([('🏠 Ana Menu', 'menu')])
+    send(f"📺 <b>YouTube → Spotify</b> (sayfa {page+1})\n"
+         "Spotify'a senkronlanacak listeyi sec:", buttons=buttons)
 
 
 def lists_menu(sp, page=0):
@@ -171,6 +192,18 @@ def do_import(sp, yt, pid):
              + (f", ?{r['pending']} supheli" if r["pending"] else ""))
     else:
         send("Bitti.")
+
+
+def do_reverse_sync(sp, yt, pid):
+    target = next((p for p in ytc.list_playlists(yt) if p["id"] == pid), None)
+    if not target:
+        send("YouTube Music listesi bulunamadi.")
+        return
+    send(f"🔁 '{target['name']}' YouTube → Spotify senkronu basladi...")
+    result = reverse_sync.sync_playlist(sp, yt, target, sync_deletes=True)
+    send(f"✅ <b>{result['name']}</b> tamamlandi: "
+         f"+{result['added']} / −{result['removed']} / "
+         f"?{result['pending']} supheli / ={result['skipped']} zaten var")
 
 
 def do_dupes(sp, yt, pid):
@@ -307,6 +340,10 @@ def handle_callback(data, callback_id, sp, yt):
         cmd_help()
     elif data == "sync_all":
         do_sync(sp, yt)
+    elif data.startswith("yt_lists:"):
+        yt_lists_menu(yt, int(data.split(":")[1]))
+    elif data.startswith("yt_sync:"):
+        do_reverse_sync(sp, yt, data.split(":", 1)[1])
     elif data.startswith("lists:"):
         lists_menu(sp, int(data.split(":")[1]))
     elif data.startswith("pl:"):
@@ -343,6 +380,7 @@ def cmd_help():
          "/sync — watchlist'i senkronla\n"
          "/sync 53 — '53'u senkronla + watchlist'e ekle\n"
          "/list — listeleri goster\n"
+         "/ytsync <liste adi> — YouTube'dan Spotify'a senkronla\n"
          "/review — supheli eslesmeler\n\n"
          "Veya /menu yazip butonlari kullan.")
 
@@ -370,6 +408,18 @@ def handle_text(text, sp, yt):
             do_sync(sp, yt)
     elif cmd in ("/list", "list"):
         lists_menu(sp, 0)
+    elif cmd in ("/ytsync", "ytsync"):
+        if not arg:
+            yt_lists_menu(yt, 0)
+            return
+        playlists = ytc.list_playlists(yt)
+        target = next((p for p in playlists if p["name"].strip().lower() == arg.lower()), None)
+        if not target:
+            target = next((p for p in playlists if arg.lower() in p["name"].lower()), None)
+        if not target:
+            send(f"YouTube Music'te '{arg}' bulunamadi.")
+            return
+        do_reverse_sync(sp, yt, target["id"])
     elif cmd in ("/review", "review"):
         review_start(yt)
     elif cmd in ("/help", "help"):

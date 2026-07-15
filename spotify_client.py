@@ -30,6 +30,7 @@ def list_playlists(sp):
                 "name": pl["name"],
                 "snapshot_id": pl["snapshot_id"],
                 "track_count": pl["tracks"]["total"],
+                "owner_id": (pl.get("owner") or {}).get("id"),
             })
         results = sp.next(results) if results["next"] else None
     return playlists
@@ -71,3 +72,70 @@ def get_tracks(sp, playlist_id):
             })
         results = sp.next(results) if results.get("next") else None
     return tracks
+
+
+def search_tracks(sp, track_name, artists, limit=None):
+    """YouTube kaydina Spotify'da aday ara; matcher ile uyumlu format dondur."""
+    limit = limit or config.SEARCH_RESULT_LIMIT
+    query = f"track:{track_name} artist:{artists.split(',')[0]}"
+    try:
+        items = sp.search(q=query, type="track", limit=limit)["tracks"]["items"]
+    except Exception:
+        items = []
+    return [
+        {
+            "spotify_id": t.get("id"),
+            "title": t.get("name") or "",
+            "artists": ", ".join(
+                a.get("name") for a in (t.get("artists") or []) if a.get("name")
+            ),
+            "duration_sec": round((t.get("duration_ms") or 0) / 1000),
+            "is_music": True,
+        }
+        for t in items if t.get("id")
+    ]
+
+
+def get_or_create_playlist(sp, name, description="YouTube Music'ten senkronize edildi"):
+    """Ayni isimli Spotify listesini bul veya kullanicinin hesabinda olustur."""
+    user_id = sp.current_user()["id"]
+    for pl in list_playlists(sp):
+        if pl["name"] == name and pl.get("owner_id") == user_id:
+            return pl["id"], True
+    created = sp.user_playlist_create(user_id, name, public=False, description=description)
+    return created["id"], False
+
+
+def add_to_playlist(sp, playlist_id, track_id):
+    """Spotify listesine tek parca ekle. Basariliysa True."""
+    try:
+        sp.playlist_add_items(playlist_id, [f"spotify:track:{track_id}"])
+        return True
+    except Exception as e:
+        print(f"  ! Spotify ekleme hatasi: {e}")
+        return False
+
+
+def remove_from_playlist(sp, playlist_id, track_id):
+    """Spotify listesinden yalnizca bir eslesmeyi sil; manuel tekrarları koru."""
+    try:
+        uri = f"spotify:track:{track_id}"
+        positions = []
+        offset = 0
+        page = sp.playlist_items(playlist_id, fields="items(track(uri)),next", limit=100)
+        while page:
+            for index, item in enumerate(page.get("items") or []):
+                if (item.get("track") or {}).get("uri") == uri:
+                    positions.append(offset + index)
+            offset += len(page.get("items") or [])
+            page = sp.next(page) if page.get("next") else None
+        if not positions:
+            return True
+        # Arac eklemeleri listenin sonuna yaptigi icin en sondaki eslesme en guvenli adaydir.
+        sp.playlist_remove_specific_occurrences_of_items(
+            playlist_id, [{"uri": uri, "positions": [positions[-1]]}]
+        )
+        return True
+    except Exception as e:
+        print(f"  ! Spotify silme hatasi: {e}")
+        return False

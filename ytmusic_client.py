@@ -116,6 +116,38 @@ def get_existing_track_keys(yt, playlist_id):
     return keys
 
 
+def list_playlists(yt):
+    """Kullanicinin YouTube Music listelerini ortak formatta dondur."""
+    return [
+        {
+            "id": pl.get("playlistId"),
+            "name": pl.get("title") or "",
+            "track_count": pl.get("count") or pl.get("trackCount") or "?",
+        }
+        for pl in yt.get_library_playlists(limit=100)
+        if pl.get("playlistId")
+    ]
+
+
+def get_tracks(yt, playlist_id):
+    """YouTube Music listesindeki parcalari eslestirme formatinda dondur."""
+    pl = yt.get_playlist(playlist_id, limit=None)
+    tracks = []
+    for t in pl.get("tracks", []) or []:
+        video_id = t.get("videoId")
+        if not video_id:
+            continue
+        tracks.append({
+            "id": video_id,
+            "name": t.get("title") or "",
+            "artists": ", ".join(
+                a.get("name") for a in (t.get("artists") or []) if a.get("name")
+            ),
+            "duration_sec": t.get("duration_seconds") or 0,
+        })
+    return tracks
+
+
 def add_to_playlist(yt, playlist_id, video_id, retries=2):
     """Bir sarkiyi playlist'e ekle.
     Donen: (ok, already_exists)

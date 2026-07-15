@@ -1,6 +1,6 @@
-# Spotify → YouTube Music Sync
+# Spotify ↔ YouTube Music Sync
 
-Spotify çalma listelerini YouTube Music'e senkronize eden, fark-bazlı çalışan bir araç. Video değil **müzik** ekler; şarkı adı + sanatçı + süre ile eşleştirir. Telegram botu ile butonlu yönetim ve zamanlanmış otomatik senkron destekler.
+Spotify ve YouTube Music çalma listelerini iki yönde senkronize eden, fark-bazlı çalışan bir araç. Şarkı adı + sanatçı + süre ile eşleştirir. Telegram botu ile butonlu yönetim ve zamanlanmış otomatik senkron destekler.
 
 ## Özellikler
 
@@ -11,6 +11,7 @@ Spotify çalma listelerini YouTube Music'e senkronize eden, fark-bazlı çalış
 - **Şüpheli eşleşme incelemesi:** Düşük skorlu eşleşmeler kuyruğa alınır, elle/Telegram üzerinden onaylanır.
 - **Mükerrer temizliği:** Aynı isim+sanatçıya sahip tekrar eden şarkıları bulur ve temizler.
 - **Telegram botu:** Butonlu arayüzle senkron, import, mükerrer kontrol, şüpheli inceleme.
+- **YouTube → Spotify:** YouTube Music listesini aynı adlı Spotify listesine aktarır; mevcut şarkıları korur ve yalnızca aracın eklediği şarkıları siler.
 
 ## Kurulum
 
@@ -49,6 +50,9 @@ python sync.py --playlist <id>            # tek liste
 python sync.py --all                       # tüm listeler
 python sync.py --dry-run                   # önizleme (hiçbir şey yapmaz)
 python sync.py --playlist <id> --import    # ilk dolum (tüm şarkıları aktar)
+python reverse_sync.py --list              # YouTube Music listelerini göster
+python reverse_sync.py --playlist <id>     # YouTube Music'ten Spotify'a senkronla
+python reverse_sync.py --playlist <id> --dry-run  # ters yön önizleme
 python review.py [spotify_id]              # şüpheli eşleşmeleri incele
 python find_duplicates.py <id|isim>        # YouTube'da mükerrer bul
 python clean_duplicates.py <id|isim>       # YouTube'da mükerrer temizle
@@ -79,7 +83,7 @@ python bot.py
 ```
 Telegram'da `/menu` yazın; butonlu arayüz açılır. Bot sürekli açık kalmalıdır (sunucuda Görev Zamanlayıcı ile otomatik başlatılabilir — bkz. WINDOWS_KURULUM.md).
 
-**Komutlar:** `/menu`, `/sync`, `/sync <liste adı>`, `/list`, `/review`
+**Komutlar:** `/menu`, `/sync`, `/sync <liste adı>`, `/ytsync <liste adı>`, `/list`, `/review`
 
 ## Otomatik çalışma (Windows)
 
@@ -99,7 +103,7 @@ Konsolun kod sayfası UTF-8 değilse Türkçe liste isimleri çökmeye yol açar
 OAuth yöntemi YouTube Music'in dahili API'siyle sorun çıkarabiliyor. Bu araç bu yüzden **browser authentication** kullanır (`setup_yt_browser.py`). OAuth'u denemeyin.
 
 **Kurumsal ağ / SSL sertifika hatası (`CERTIFICATE_VERIFY_FAILED`)**
-Bazı sunucu ağları HTTPS'i kendi sertifikasıyla imzalar. Telegram bildirimi bu durumda doğrulamayı esnetir (hassas veri taşımadığı için). Sorun sürerse ağ/DNS ayarlarını kontrol edin.
+Telegram bağlantıları sertifikayı `certifi` CA paketiyle doğrular. Sorun sürerse ağ/DNS ayarlarını kontrol edin; sertifika doğrulamasını kapatmayın.
 
 **"Liste ilk kez görülüyor, ekleme yapılmadı"**
 Fark-bazlı çalışma gereği: ilk görülen liste referans olarak kaydedilir, şarkılar eklenmez. Mevcut bir listenin tüm şarkılarını aktarmak için `--import` kullanın.

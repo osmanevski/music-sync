@@ -59,6 +59,24 @@ def init_db():
             spotify_track_id    TEXT,
             PRIMARY KEY (spotify_playlist_id, spotify_track_id)
         );
+
+        -- Ters yon (YouTube -> Spotify) tamamen ayri tutulur.
+        CREATE TABLE IF NOT EXISTS reverse_playlist_state (
+            yt_playlist_id TEXT,
+            yt_video_id    TEXT,
+            PRIMARY KEY (yt_playlist_id, yt_video_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS reverse_synced_tracks (
+            yt_playlist_id     TEXT,
+            yt_video_id        TEXT,
+            spotify_playlist_id TEXT,
+            spotify_track_id   TEXT,
+            track_name         TEXT,
+            artist_name        TEXT,
+            synced_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (yt_playlist_id, yt_video_id, spotify_playlist_id)
+        );
         """)
 
 
@@ -184,4 +202,57 @@ def set_track_state(spotify_playlist_id, track_ids):
         conn.executemany(
             "INSERT OR IGNORE INTO playlist_track_state (spotify_playlist_id, spotify_track_id) VALUES (?,?)",
             [(spotify_playlist_id, tid) for tid in track_ids]
+        )
+
+
+def get_reverse_track_state(yt_playlist_id):
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT yt_video_id FROM reverse_playlist_state WHERE yt_playlist_id=?",
+            (yt_playlist_id,)
+        ).fetchall()
+        if not rows:
+            return None
+        return {r["yt_video_id"] for r in rows}
+
+
+def set_reverse_track_state(yt_playlist_id, video_ids):
+    with get_db() as conn:
+        conn.execute(
+            "DELETE FROM reverse_playlist_state WHERE yt_playlist_id=?", (yt_playlist_id,)
+        )
+        conn.executemany(
+            "INSERT OR IGNORE INTO reverse_playlist_state (yt_playlist_id, yt_video_id) VALUES (?,?)",
+            [(yt_playlist_id, vid) for vid in video_ids]
+        )
+
+
+def mark_reverse_synced(yt_playlist_id, yt_video_id, spotify_playlist_id,
+                        spotify_track_id, track_name, artist_name):
+    with get_db() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO reverse_synced_tracks
+               (yt_playlist_id, yt_video_id, spotify_playlist_id, spotify_track_id,
+                track_name, artist_name) VALUES (?,?,?,?,?,?)""",
+            (yt_playlist_id, yt_video_id, spotify_playlist_id, spotify_track_id,
+             track_name, artist_name)
+        )
+
+
+def get_reverse_synced(yt_playlist_id, spotify_playlist_id):
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT * FROM reverse_synced_tracks
+               WHERE yt_playlist_id=? AND spotify_playlist_id=?""",
+            (yt_playlist_id, spotify_playlist_id)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def remove_reverse_synced(yt_playlist_id, yt_video_id, spotify_playlist_id):
+    with get_db() as conn:
+        conn.execute(
+            """DELETE FROM reverse_synced_tracks
+               WHERE yt_playlist_id=? AND yt_video_id=? AND spotify_playlist_id=?""",
+            (yt_playlist_id, yt_video_id, spotify_playlist_id)
         )
