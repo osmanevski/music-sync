@@ -1,5 +1,13 @@
 """YouTube Music playlist'lerini Spotify'a guvenli ve fark-bazli senkronlar."""
 import argparse
+import sys
+
+# Windows konsolunda Turkce/Yunanca karakterler listelemeyi cokertmesin.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 import config
 import db
