@@ -8,6 +8,7 @@ Calistirmak icin:  python bot.py   (surekli acik kalmali)
 """
 import ssl
 import json
+import html
 import time
 import urllib.request
 import urllib.parse
@@ -109,6 +110,7 @@ def yt_playlist_menu(yt, pid):
     send(f"🔴 <b>{playlist['name']}</b>\n{playlist['track_count']} sarki", buttons=[
         [("🔄 Spotify'a Senkronla", f"yt_sync:{pid}")],
         [("👀 Onizle (degisiklik yapma)", f"yt_preview:{pid}")],
+        [("🔁 YouTube mukerrer kontrol", f"yt_dupes:{pid}")],
         [("⬅️ YouTube Listeleri", "yt_lists:0")],
         [("🏠 Ana Menu", "menu")],
     ])
@@ -146,7 +148,7 @@ def playlist_menu(sp, pid):
     send(f"<b>{p['name']}</b>\n{p['track_count']} sarki", buttons=[
         [("🔄 Senkronla", f"sync:{pid}")],
         [("📥 Ilk dolum (hepsini aktar)", f"import:{pid}")],
-        [("🔁 Mukerrer kontrol", f"dupes:{pid}")],
+        [("🔁 Spotify mukerrer kontrol", f"sp_dupes:{pid}")],
         [(watch_label, f"watch:{pid}")],
         [("🏠 Ana Menu", "menu")],
     ])
@@ -235,51 +237,68 @@ def do_reverse_preview(sp, yt, pid):
          f"?{result['pending']} supheli / ={result['skipped']} zaten var")
 
 
-def do_dupes(sp, yt, pid):
-    # pid bir SPOTIFY liste id'si; YouTube API'sine YouTube liste id'si vermeliyiz.
-    # Once Spotify listesinin adini bul, sonra o ada karsilik gelen YT listesini cevir.
+def do_spotify_dupes(sp, pid):
+    """Secilen Spotify listesindeki tekrarları salt-okunur kontrol et."""
     playlists = spc.list_playlists(sp)
     sp_pl = next((x for x in playlists if x["id"] == pid), None)
     if not sp_pl:
-        send("Liste bulunamadi.")
+        send("Spotify listesi bulunamadi.")
         return
-    name = sp_pl["name"]
-    # DB'de kayitli eslesme varsa onu kullan; yoksa (ya da ilk-gorulen yer tutucu
-    # olarak Spotify id'si kaydedildiyse) isimden YouTube listesini bul.
-    yt_pid = db.get_yt_playlist_for_spotify(pid)
-    if not yt_pid or yt_pid == pid:
-        yt_pid, _existed = sync_module._find_playlist(yt, name)
-    if not yt_pid:
-        send(f"'{name}' icin YouTube listesi bulunamadi "
-             f"(bu liste henuz senkronlanmamis olabilir).")
+    tracks = spc.get_tracks(sp, pid)
+    groups = defaultdict(list)
+    for track in tracks:
+        first = track["artists"].split(",")[0] if track.get("artists") else ""
+        key = (" ".join(track["name"].lower().split()),
+               " ".join(first.lower().split()))
+        groups[key].append((track["name"], first))
+    _send_duplicate_report("Spotify", sp_pl["name"], groups)
+
+
+def do_youtube_dupes(yt, pid):
+    """Secilen YouTube Music listesindeki tekrarları salt-okunur kontrol et."""
+    playlist = next((p for p in ytc.list_playlists(yt) if p["id"] == pid), None)
+    if not playlist:
+        send("YouTube Music listesi bulunamadi.")
         return
     try:
-        pl = yt.get_playlist(yt_pid, limit=None)
+        tracks = ytc.get_tracks(yt, pid)
     except Exception as e:
-        # Bos liste ya da okunamayan liste -> ytmusicapi 'contents' hatasi verebilir
         msg = str(e)
         if "contents" in msg:
             send("Liste bos görünüyor (ya da hic sarki yok), mukerrer kontrolu yapilamadi.")
         else:
             send(f"Liste okunamadi: {msg[:200]}")
         return
-    name = pl.get("title", "?")
     groups = defaultdict(list)
-    for t in pl.get("tracks", []):
-        title = t.get("title", "") or ""
-        arts = t.get("artists") or []
-        first = arts[0]["name"] if arts and arts[0].get("name") else ""
-        key = f"{' '.join(title.lower().split())}|{' '.join(first.lower().split())}"
-        groups[key].append((title, first))
+    for track in tracks:
+        first = track["artists"].split(",")[0] if track.get("artists") else ""
+        key = (" ".join(track["name"].lower().split()),
+               " ".join(first.lower().split()))
+        groups[key].append((track["name"], first))
+    _send_duplicate_report("YouTube", playlist["name"], groups)
+
+
+def _send_duplicate_report(platform, name, groups):
+    """Platformdan bagimsiz Telegram mukerrer raporu gonder."""
+    safe_platform = html.escape(platform)
+    safe_name = html.escape(name)
     dups = {k: v for k, v in groups.items() if len(v) > 1}
     if not dups:
-        send(f"✅ '{name}' temiz, mukerrer yok.")
+        send(f"✅ {safe_platform} • '{safe_name}' temiz, mukerrer yok.")
         return
     extra = sum(len(v) - 1 for v in dups.values())
-    lines = [f"⚠️ '{name}': {len(dups)} tekrar ({extra} fazladan):", ""]
-    for k, v in sorted(dups.items(), key=lambda x: -len(x[1]))[:25]:
-        lines.append(f"• {v[0][0]} [{v[0][1]}] x{len(v)}")
-    lines.append("\nTemizlemek icin sunucuda: <code>python clean_duplicates.py \"" + name + "\"</code>")
+    lines = [f"⚠️ {safe_platform} • '{safe_name}': {len(dups)} tekrar "
+             f"({extra} fazladan):", ""]
+    shown = 0
+    for k, v in sorted(dups.items(), key=lambda x: -len(x[1])):
+        line = f"• {html.escape(v[0][0])} [{html.escape(v[0][1])}] x{len(v)}"
+        if shown >= 25 or sum(len(x) + 1 for x in lines) + len(line) > 3500:
+            break
+        lines.append(line)
+        shown += 1
+    if len(dups) > shown:
+        lines.append(f"\n… ve {len(dups) - shown} tekrar grubu daha.")
+    lines.append("\nBu kontrol hicbir seyi silmedi.")
     send("\n".join(lines))
 
 
@@ -385,8 +404,13 @@ def handle_callback(data, callback_id, sp, yt):
         do_sync(sp, yt, data.split(":", 1)[1])
     elif data.startswith("import:"):
         do_import(sp, yt, data.split(":", 1)[1])
+    elif data.startswith("sp_dupes:"):
+        do_spotify_dupes(sp, data.split(":", 1)[1])
+    elif data.startswith("yt_dupes:"):
+        do_youtube_dupes(yt, data.split(":", 1)[1])
     elif data.startswith("dupes:"):
-        do_dupes(sp, yt, data.split(":", 1)[1])
+        # Eski Telegram mesajlarindaki butonlarla geriye uyumluluk.
+        do_spotify_dupes(sp, data.split(":", 1)[1])
     elif data.startswith("watch:"):
         pid = data.split(":", 1)[1]
         if sync_module.add_to_watchlist(pid):
