@@ -86,7 +86,7 @@ def yt_lists_menu(yt, page=0):
     playlists = ytc.list_playlists(yt)
     per = 8
     start = page * per
-    buttons = [[(p["name"][:40], f"yt_sync:{p['id']}")]
+    buttons = [[(p["name"][:40], f"yt_pl:{p['id']}")]
                for p in playlists[start:start + per]]
     nav = []
     if page > 0:
@@ -98,6 +98,20 @@ def yt_lists_menu(yt, page=0):
     buttons.append([('🏠 Ana Menu', 'menu')])
     send(f"🔴 <b>YouTube Listeleri</b> (sayfa {page+1})\n"
          "Spotify'a senkronlanacak listeyi sec:", buttons=buttons)
+
+
+def yt_playlist_menu(yt, pid):
+    """YouTube listesine tiklaninca islemi hemen baslatmadan secenekleri goster."""
+    playlist = next((p for p in ytc.list_playlists(yt) if p["id"] == pid), None)
+    if not playlist:
+        send("YouTube Music listesi bulunamadi.")
+        return
+    send(f"🔴 <b>{playlist['name']}</b>\n{playlist['track_count']} sarki", buttons=[
+        [("🔄 Spotify'a Senkronla", f"yt_sync:{pid}")],
+        [("👀 Onizle (degisiklik yapma)", f"yt_preview:{pid}")],
+        [("⬅️ YouTube Listeleri", "yt_lists:0")],
+        [("🏠 Ana Menu", "menu")],
+    ])
 
 
 def lists_menu(sp, page=0):
@@ -203,6 +217,20 @@ def do_reverse_sync(sp, yt, pid):
     send(f"🔁 '{target['name']}' YouTube → Spotify senkronu basladi...")
     result = reverse_sync.sync_playlist(sp, yt, target, sync_deletes=True)
     send(f"✅ <b>{result['name']}</b> tamamlandi: "
+         f"+{result['added']} / −{result['removed']} / "
+         f"?{result['pending']} supheli / ={result['skipped']} zaten var")
+
+
+def do_reverse_preview(sp, yt, pid):
+    target = next((p for p in ytc.list_playlists(yt) if p["id"] == pid), None)
+    if not target:
+        send("YouTube Music listesi bulunamadi.")
+        return
+    send(f"👀 '{target['name']}' icin onizleme basladi; hicbir sey degismeyecek...")
+    result = reverse_sync.sync_playlist(
+        sp, yt, target, dry_run=True, sync_deletes=True
+    )
+    send(f"👀 <b>{result['name']}</b> onizleme: "
          f"+{result['added']} / −{result['removed']} / "
          f"?{result['pending']} supheli / ={result['skipped']} zaten var")
 
@@ -343,8 +371,12 @@ def handle_callback(data, callback_id, sp, yt):
         do_sync(sp, yt)
     elif data.startswith("yt_lists:"):
         yt_lists_menu(yt, int(data.split(":")[1]))
+    elif data.startswith("yt_pl:"):
+        yt_playlist_menu(yt, data.split(":", 1)[1])
     elif data.startswith("yt_sync:"):
         do_reverse_sync(sp, yt, data.split(":", 1)[1])
+    elif data.startswith("yt_preview:"):
+        do_reverse_preview(sp, yt, data.split(":", 1)[1])
     elif data.startswith("lists:"):
         lists_menu(sp, int(data.split(":")[1]))
     elif data.startswith("pl:"):
