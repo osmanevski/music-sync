@@ -74,8 +74,8 @@ def answer_callback(callback_id, text=""):
 def main_menu():
     send("🎵 <b>Ana Menu</b>\nNe yapmak istersin?", buttons=[
         [("🔄 Watchlist'i Senkronla", "sync_all")],
-        [("🔁 YouTube → Spotify", "yt_lists:0")],
-        [("📋 Listeler", "lists:0")],
+        [("🟢 Spotify Listeleri", "lists:0")],
+        [("🔴 YouTube Listeleri", "yt_lists:0")],
         [("⚠️ Supheliler", "review_start")],
         [("❓ Yardim", "help")],
     ])
@@ -96,7 +96,7 @@ def yt_lists_menu(yt, page=0):
     if nav:
         buttons.append(nav)
     buttons.append([('🏠 Ana Menu', 'menu')])
-    send(f"📺 <b>YouTube → Spotify</b> (sayfa {page+1})\n"
+    send(f"🔴 <b>YouTube Listeleri</b> (sayfa {page+1})\n"
          "Spotify'a senkronlanacak listeyi sec:", buttons=buttons)
 
 
@@ -116,7 +116,8 @@ def lists_menu(sp, page=0):
     if nav:
         buttons.append(nav)
     buttons.append([("🏠 Ana Menu", "menu")])
-    send(f"📋 <b>Listeler</b> (sayfa {page+1})\nBir liste sec:", buttons=buttons)
+    send(f"🟢 <b>Spotify Listeleri</b> (sayfa {page+1})\nBir liste sec:",
+         buttons=buttons)
 
 
 def playlist_menu(sp, pid):
