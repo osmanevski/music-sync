@@ -11,13 +11,13 @@ Spotify ve YouTube Music çalma listelerini iki yönde senkronize eden, fark-baz
 - **Şüpheli eşleşme incelemesi:** Düşük skorlu eşleşmeler kuyruğa alınır, elle/Telegram üzerinden onaylanır.
 - **Mükerrer temizliği:** Aynı isim+sanatçıya sahip tekrar eden şarkıları bulur ve temizler.
 - **Telegram botu:** Butonlu arayüzle senkron, import, mükerrer kontrol, şüpheli inceleme.
-- **YouTube → Spotify:** YouTube Music listesini aynı adlı Spotify listesine aktarır; mevcut şarkıları korur ve yalnızca aracın eklediği şarkıları siler.
+- **YouTube → Spotify:** YouTube Music listesini aynı adlı Spotify listesine aktarır; mevcut şarkıları korur ve yalnızca aracın eklediği şarkıları siler. **Yalnızca elle tetiklenir** (`reverse_sync.py` veya Telegram butonu/`/ytsync`) — zamanlanmış otomatik senkron sadece Spotify → YouTube yönünde çalışır.
 
 ## Kurulum
 
 ```bash
-git clone <repo-url>
-cd ytmusic-sync
+git clone https://github.com/osmanevski/music-sync.git
+cd music-sync
 python -m venv venv
 # Windows:
 venv\Scripts\activate
@@ -113,7 +113,7 @@ Fark-bazlı çalışma gereği: ilk görülen liste referans olarak kaydedilir, 
 
 ## Güvenlik
 
-`.env`, `browser.json`, `sync.db`, `watchlist.txt` gibi kişisel/gizli dosyalar `.gitignore` ile hariç tutulmuştur. **Bu dosyaları asla depoya yüklemeyin** — API anahtarları ve oturum bilgileri içerirler.
+`.env`, `.spotify_cache`, `browser.json`, `headers.txt`, `sync.db`, `watchlist.txt` gibi kişisel/gizli dosyalar `.gitignore` ile hariç tutulmuştur. **Bu dosyaları asla depoya yüklemeyin** — API anahtarları, oturum çerezleri ve token'lar içerirler.
 
 ## Teknik notlar
 
