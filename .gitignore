@@ -26,5 +26,6 @@ __pycache__/
 # --- Claude Code yerel ayarlari ---
 .claude/
 
-# --- AI agent handoff (yerel state, her tur degisir) ---
+# --- AI agent handoff + ortak hafiza (yerel, sunucu erisim detayi icerir) ---
 AI_HANDOFF.md
+AGENTS.md
