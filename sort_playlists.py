@@ -19,6 +19,17 @@ SORT_FILE = "sort_watchlist.txt"
 # çalışmada (her gece sync sonunda) devam eder.
 MAX_MOVES = int(os.environ.get("SORT_MAX_MOVES", "300"))
 PAUSE = float(os.environ.get("SORT_PAUSE_SECONDS", "0.3"))
+# Elle, anlamli bir sirayla dizilmis listeler: sort_watchlist.txt'e eklense bile asla siralanmaz.
+# Liste adinda geciyorsa korunur; buyuk/kucuk harf ve ı/i farki yok sayilir ("ϟ FIRTINA" da korunur).
+PROTECTED_NAMES = {"fırtına"}
+
+
+def _norm(s):
+    return (s or "").casefold().replace("ı", "i").replace("i\u0307", "i")
+
+
+def is_protected(name):
+    return any(_norm(p) in _norm(name) for p in PROTECTED_NAMES)
 
 
 def read_sort_ids():
@@ -59,6 +70,9 @@ def plan_moves(dates):
 
 def sort_playlist(sp, pl, dry_run=False):
     pid, name = pl["id"], pl["name"]
+    if is_protected(name):
+        print(f"[SIRA] '{name}' korumali (elle sirali), atlandi.")
+        return 0
     dates = get_added_dates(sp, pid)
     moves = plan_moves(dates)
     if not moves:
