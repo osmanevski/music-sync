@@ -79,6 +79,10 @@ def replace_playlist(yt, state, title, ids):
     if "SUCCEEDED" not in str(status):
         raise RuntimeError(f"ekleme basarisiz: {str(resp)[:200]}")
     got = [t.get("videoId") for t in (yt.get_playlist(pid, limit=None).get("tracks") or [])]
+    # YouTube Music, resmi klipleri listede "sarki" karsiligiyla (farkli videoId) gosterebilir;
+    # sayi tutuyorsa eksik yok demektir.
+    if len(got) >= len(ids):
+        return pid, list(ids), []
     return pid, [v for v in ids if v in got], [v for v in ids if v not in got]
 
 
