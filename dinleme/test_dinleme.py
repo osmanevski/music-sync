@@ -128,5 +128,21 @@ class RunLoop(unittest.TestCase):
         self.assertEqual(n, 1)
 
 
+class Radyo(unittest.TestCase):
+    def test_revision_added_for_queue_actions(self):
+        from dinleme import radyo
+        body = radyo.build_action("move", ["id=abc", "before=null"], lambda: {"revision": "r1"})
+        self.assertEqual(body, {"action": "move", "id": "abc", "before": None, "revision": "r1"})
+        body = radyo.build_action("add", ["url=https://www.youtube.com/watch?v=x"], lambda: 1 / 0)
+        self.assertNotIn("revision", body)
+        body = radyo.build_action("repeat", ["id=a", "repeat=true"], lambda: {"revision": "r"})
+        self.assertIs(body["repeat"], True)
+
+    def test_unknown_action_rejected(self):
+        from dinleme import radyo
+        with self.assertRaises(ValueError):
+            radyo.build_action("mesaj_sil", [], lambda: {})
+
+
 if __name__ == "__main__":
     unittest.main()
