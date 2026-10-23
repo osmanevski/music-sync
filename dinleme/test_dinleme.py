@@ -144,5 +144,63 @@ class Radyo(unittest.TestCase):
             radyo.build_action("mesaj_sil", [], lambda: {})
 
 
+class Akis(unittest.TestCase):
+    def test_score_recency_and_filters(self):
+        from dinleme import akis
+        db = topla.connect(":memory:")
+        topla.ingest_youtube(db, dump(["a1aaaaaaaaa", "b1bbbbbbbbb", "c1ccccccccc", "a1aaaaaaaaa"]))
+        topla.apply_classification(db, [
+            {"id": "a1aaaaaaaaa", "muzik": True, "sanatcilar": ["Aysun Gültekin"], "eser": "X"},
+            {"id": "b1bbbbbbbbb", "muzik": False},
+            {"id": "c1ccccccccc", "muzik": True, "sanatcilar": ["Z"], "eser": "Y"}],
+            ["a1aaaaaaaaa", "b1bbbbbbbbb", "c1ccccccccc"])
+        db.execute("UPDATE videos SET duration=3600 WHERE id='c1ccccccccc'")  # tam bolum
+        out = akis.pick(db, 10)
+        self.assertEqual([e["id"] for e in out], ["a1aaaaaaaaa"])
+        self.assertEqual(out[0]["plays"], 2)
+
+
+class YtListe(unittest.TestCase):
+    def test_validate_dedupes_and_rejects_bad_ids(self):
+        from dinleme import yt_liste
+        title, ids = yt_liste.validate({"video_ids": ["a1aaaaaaaaa", "a1aaaaaaaaa", "kötü id", "b1bbbbbbbbb"]})
+        self.assertEqual(ids, ["a1aaaaaaaaa", "b1bbbbbbbbb"])
+        with self.assertRaises(ValueError):
+            yt_liste.validate({"video_ids": ["x"]})
+
+    def test_replace_creates_unlisted_then_replaces(self):
+        from dinleme import yt_liste
+
+        class FakeYT:
+            def __init__(self):
+                self.lists, self.created = {}, []
+
+            def create_playlist(self, title, desc, privacy_status):
+                self.created.append(privacy_status)
+                self.lists["PL1"] = {"title": title, "tracks": []}
+                return "PL1"
+
+            def get_playlist(self, pid, limit=None):
+                return self.lists[pid]
+
+            def remove_playlist_items(self, pid, items):
+                ids = {t["setVideoId"] for t in items}
+                self.lists[pid]["tracks"] = [t for t in self.lists[pid]["tracks"] if t["setVideoId"] not in ids]
+
+            def edit_playlist(self, pid, title):
+                self.lists[pid]["title"] = title
+
+            def add_playlist_items(self, pid, ids, duplicates=False):
+                self.lists[pid]["tracks"] += [{"videoId": v, "setVideoId": "s" + v} for v in ids]
+                return {"status": "STATUS_SUCCEEDED"}
+
+        yt = FakeYT()
+        pid, added, missing = yt_liste.replace_playlist(yt, {}, "Ozan · Akış", ["a1aaaaaaaaa"])
+        self.assertEqual((pid, yt.created), ("PL1", ["UNLISTED"]))
+        pid, added, missing = yt_liste.replace_playlist(yt, {"playlist_id": "PL1"}, "Ozan · Akış", ["b1bbbbbbbbb"])
+        self.assertEqual([t["videoId"] for t in yt.lists["PL1"]["tracks"]], ["b1bbbbbbbbb"])
+        self.assertEqual((added, missing), (["b1bbbbbbbbb"], []))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -30,3 +30,6 @@ __pycache__/
 # --- AI agent handoff + ortak hafiza (yerel, sunucu erisim detayi icerir) ---
 AI_HANDOFF.md
 AGENTS.md
+
+# Ozan akis listesinin YouTube id durumu (sunucu)
+akis-state.json

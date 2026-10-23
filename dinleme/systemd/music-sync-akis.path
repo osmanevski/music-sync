@@ -1,0 +1,9 @@
+[Unit]
+Description=Music Sync: Ozan akis istegini izle
+
+[Path]
+PathChanged=/var/lib/hermes/profiles/ozan/data/akis-istek.json
+Unit=music-sync-akis.service
+
+[Install]
+WantedBy=paths.target

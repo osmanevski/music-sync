@@ -1,0 +1,9 @@
+[Unit]
+Description=Music Sync: Ozan akis listesini YouTube'a yaz
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/music-sync
+ExecStart=/opt/music-sync/venv/bin/python -m dinleme.yt_liste
+PrivateTmp=yes
+TimeoutStartSec=300
