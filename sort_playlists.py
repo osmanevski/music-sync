@@ -9,9 +9,16 @@ Sadece sahibi oldugun (veya collaborative) listeler siralanabilir.
 """
 import os
 import sys
+import time
 import spotify_client as spc
 
 SORT_FILE = "sort_watchlist.txt"
+# Spotify, kısa sürede binlerce reorder isteğine saatlerce süren rate limit (Retry-After ~8 saat)
+# veriyor. Her çalışmada liste başına en fazla MAX_MOVES taşıma yapılır, aralarında PAUSE beklenir.
+# Taşımalar en üstten başladığı için yarım bırakılan sıralama da geçerlidir; kalan kısım sonraki
+# çalışmada (her gece sync sonunda) devam eder.
+MAX_MOVES = int(os.environ.get("SORT_MAX_MOVES", "300"))
+PAUSE = float(os.environ.get("SORT_PAUSE_SECONDS", "0.3"))
 
 
 def read_sort_ids():
@@ -60,12 +67,17 @@ def sort_playlist(sp, pl, dry_run=False):
     print(f"[SIRA] '{name}': {len(dates)} parca, {len(moves)} hamle" + (" (kuru)" if dry_run else ""))
     if dry_run:
         return len(moves)
+    batch = moves[:MAX_MOVES]
+    if len(batch) < len(moves):
+        print(f"  bu calismada ilk {len(batch)} hamle; kalan {len(moves) - len(batch)} sonraki calismada")
     snap = spc.get_playlist_snapshot(sp, pid)
-    for j, i in moves:
+    for n, (j, i) in enumerate(batch):
+        if n:
+            time.sleep(PAUSE)
         res = sp.playlist_reorder_items(pid, range_start=j, insert_before=i,
                                         range_length=1, snapshot_id=snap)
         snap = (res or {}).get("snapshot_id", snap)
-    return len(moves)
+    return len(batch)
 
 
 def sort_targets(sp, playlists, dry_run=False):
