@@ -1,0 +1,11 @@
+[Unit]
+Description=Music Sync: YouTube izleme gecmisi dokumu (Ozan icin, cerezsiz JSON)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/music-sync
+ExecStart=/opt/music-sync/venv/bin/python -m dinleme.yt_gecmis
+PrivateTmp=yes
+Nice=10
+TimeoutStartSec=300

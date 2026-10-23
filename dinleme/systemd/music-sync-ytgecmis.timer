@@ -1,0 +1,10 @@
+[Unit]
+Description=Music Sync: YouTube izleme gecmisi saatlik dokum
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
