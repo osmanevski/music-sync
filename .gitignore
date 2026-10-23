@@ -7,6 +7,7 @@ oauth.json
 
 # --- Kisisel liste id'leri (repo'da ornek dosya var: watchlist.example.txt) ---
 watchlist.txt
+sort_watchlist.txt
 
 # --- Calisma zamani verisi ---
 sync.db

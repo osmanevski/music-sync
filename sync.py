@@ -31,6 +31,7 @@ import spotify_client as spc
 import ytmusic_client as ytc
 import matcher
 import telegram_notify
+import sort_playlists
 
 
 def sync_playlist(sp, yt, sp_playlist, force=False, dry_run=False, sync_deletes=True,
@@ -317,6 +318,9 @@ def main():
                           sync_deletes=not args.no_delete, do_import=args.do_import)
         if r:
             results.append(r)
+
+    # En yeni en uste: sort_watchlist.txt'teki listeleri added_at'e gore diz
+    sort_playlists.sort_targets(sp, targets, dry_run=args.dry_run)
 
     if not args.dry_run:
         print("\nBitti. Supheli eslesmeleri gormek icin: python review.py")

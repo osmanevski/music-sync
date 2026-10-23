@@ -10,6 +10,7 @@ Spotify ve YouTube Music çalma listelerini iki yönde senkronize eden, fark-baz
 - **İlk dolum (`--import`):** Mevcut bir listeyi YouTube'a aktarır, zaten var olanları atlar.
 - **Şüpheli eşleşme incelemesi:** Düşük skorlu eşleşmeler kuyruğa alınır, elle/Telegram üzerinden onaylanır.
 - **Mükerrer temizliği:** Aynı isim+sanatçıya sahip tekrar eden şarkıları bulur ve temizler.
+- **En yeni en üstte sıralama:** `sort_watchlist.txt`'teki Spotify listelerini her senkronun sonunda `added_at`'e göre yeniden dizer (en son eklenen en üstte). Spotify'daki sıralama görünümü kişiye özel olduğu için listenin gerçek sırası değiştirilir; böylece herkes aynı sırayı görür. Yalnız gereken parçalar taşınır; ilk çalışma elle verilmiş özel sırayı siler.
 - **Telegram botu:** Butonlu arayüzle senkron, import, mükerrer kontrol, şüpheli inceleme.
 - **YouTube → Spotify:** YouTube Music listesini aynı adlı Spotify listesine aktarır; mevcut şarkıları korur ve yalnızca aracın eklediği şarkıları siler. **Yalnızca elle tetiklenir** (`reverse_sync.py` veya Telegram butonu/`/ytsync`) — zamanlanmış otomatik senkron sadece Spotify → YouTube yönünde çalışır.
 
@@ -56,6 +57,9 @@ python reverse_sync.py --playlist <id> --dry-run  # ters yön önizleme
 python review.py [spotify_id]              # şüpheli eşleşmeleri incele
 python find_duplicates.py <id|isim>        # YouTube'da mükerrer bul
 python clean_duplicates.py <id|isim>       # YouTube'da mükerrer temizle
+python sort_playlists.py --list            # sort_watchlist.txt'teki listeleri göster
+python sort_playlists.py --dry-run         # sıralama için kaç hamle gerektiğini göster
+python sort_playlists.py                   # listeleri en yeni en üstte sırala (sync.py sonunda otomatik çalışır)
 python bot.py                              # Telegram botunu başlat
 ```
 
