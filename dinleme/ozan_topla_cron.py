@@ -2,22 +2,20 @@
 """Ozan rutini (Hermes cron, no_agent): saatlik dinleme toplama.
 
 Kurulum yeri: /var/lib/hermes/profiles/ozan/scripts/ozan-topla.py (kaynak: music-sync/dinleme/).
-stdout bos = sessiz tur. Ariza esigi asilirsa uyari hem yazdirilir hem ana Hermes'in
-Telegram'ina gider (Ozan profilinin kendi Telegram botu yok).
+stdout bos = sessiz tur. Ariza esigi asilirsa uyari hem yazdirilir hem Music-Sync Telegram
+botunun giden kutusuna birakilir (Hermes Telegram botu kullanilmaz).
 """
 import json
 import os
-import subprocess
 import sys
 
 MUSIC_SYNC = "/opt/music-sync"
 HERMES_AGENT = "/usr/local/lib/hermes-agent"
-MAIN_HOME = "/var/lib/hermes"          # Spotify girisi ve Telegram ana profilde
-HERMES_BIN = "/usr/local/lib/hermes-agent/.hermes/bin/hermes"
+MAIN_HOME = "/var/lib/hermes"          # Spotify girisi ana profilde
 DATA = "/var/lib/hermes/profiles/ozan/data"
 
 sys.path.insert(0, MUSIC_SYNC)
-from dinleme import calistir, siniflandir  # noqa: E402
+from dinleme import calistir, siniflandir, telegram_giden  # noqa: E402
 
 
 def spotify_fetch():
@@ -31,11 +29,8 @@ def spotify_fetch():
 
 
 def telegram(text):
-    env = {"HOME": MAIN_HOME, "USER": "hermes", "HERMES_HOME": MAIN_HOME,
-           "PATH": "/usr/local/bin:/usr/bin:/bin"}
     try:
-        subprocess.run([HERMES_BIN, "send", "-t", "telegram", text], env=env,
-                       capture_output=True, timeout=60)
+        telegram_giden.put(text)
     except Exception:
         pass
 

@@ -202,5 +202,52 @@ class YtListe(unittest.TestCase):
         self.assertEqual((added, missing), (["b1bbbbbbbbb"], []))
 
 
+class OzanKopru(unittest.TestCase):
+    def test_outbox_roundtrip_and_prefix(self):
+        import tempfile
+        from dinleme import telegram_giden
+        with tempfile.TemporaryDirectory() as d:
+            telegram_giden.put("ilk", outbox=d)
+            telegram_giden.put("Ozan: ikinci", outbox=d)
+            self.assertEqual(telegram_giden.take(outbox=d), ["Ozan: ilk", "Ozan: ikinci"])
+            self.assertEqual(telegram_giden.take(outbox=d), [])
+
+    def test_chunks_split_long(self):
+        from dinleme import telegram_giden
+        parts = list(telegram_giden.chunks("a\n" * 3000, size=1000))
+        self.assertTrue(all(len(p) <= 1000 for p in parts))
+        self.assertEqual("".join(parts).count("a"), 3000)
+
+    def test_bridge_context_and_reply(self):
+        from dinleme import ozan_bot
+        sent, prompts, box = [], [], [["Ozan: haftalik rapor"]]
+        b = ozan_bot.OzanBridge(sent.append, lambda: None,
+                                runner=lambda t: prompts.append(t) or "Tamam\nsession_id: abc\n",
+                                take=lambda: box.pop() if box else [])
+        b.flush_outbox()
+        b.handle("radyoda ne caliyor")
+        self.assertEqual(sent, ["Ozan: haftalik rapor", "Tamam"])
+        self.assertIn("haftalik rapor", prompts[0])
+        self.assertIn("Osman (Telegram): radyoda ne caliyor", prompts[0])
+        b.handle("ikinci")
+        self.assertEqual(prompts[1], "ikinci")   # baglam bir kez verilir
+
+    def test_bridge_error_reported(self):
+        from dinleme import ozan_bot
+        sent = []
+
+        def boom(_):
+            raise RuntimeError("x")
+        ozan_bot.OzanBridge(sent.append, lambda: None, runner=boom, take=list).handle("selam")
+        self.assertTrue(sent[0].startswith("Ozan: bir hata oldu"))
+
+    def test_command_uses_ozan_profile_not_main_telegram(self):
+        from dinleme import ozan_bot
+        cmd = ozan_bot.ozan_command("x")
+        self.assertIn("ozan", cmd)
+        self.assertNotIn("send", cmd)
+        self.assertEqual(cmd[:3], ["sudo", "-u", "hermes"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,7 @@ Hem metin komutlari (/sync, /list...) hem butonlar calisir.
 Calistirmak icin:  python bot.py   (surekli acik kalmali)
 """
 import ssl
+import os
 import json
 import html
 import time
@@ -68,6 +69,26 @@ def answer_callback(callback_id, text=""):
         _api("answerCallbackQuery", {"callback_query_id": callback_id, "text": text})
     except Exception as e:
         print(f"answer_callback hatasi: {e}")
+
+
+def send_plain(text):
+    """Bicimsiz mesaj (Ozan'in serbest metni HTML'e uymayabilir)."""
+    try:
+        _api("sendMessage", {"chat_id": config.TELEGRAM_CHAT_ID, "text": text,
+                             "disable_web_page_preview": "true"})
+    except Exception as e:
+        print(f"send_plain hatasi: {e}")
+
+
+def send_typing():
+    try:
+        _api("sendChatAction", {"chat_id": config.TELEGRAM_CHAT_ID, "action": "typing"}, timeout=10)
+    except Exception:
+        pass
+
+
+# Ozan (DJ): komut olmayan mesajlar ona gider; giden kutusunu bu bot bosaltir.
+_ozan = None
 
 
 # --- Menuler ---
@@ -439,6 +460,8 @@ def cmd_help():
          "/list — listeleri goster\n"
          "/ytsync <liste adi> — YouTube'dan Spotify'a senkronla\n"
          "/review — supheli eslesmeler\n\n"
+         "Komut olmayan her mesaj <b>Ozan</b>'a (DJ) gider: akis, radyo, dinlediklerin.\n"
+         "/ozan &lt;mesaj&gt; ile de yazabilirsin.\n\n"
          "Veya /menu yazip butonlari kullan.")
 
 
@@ -481,6 +504,14 @@ def handle_text(text, sp, yt):
         review_start(yt)
     elif cmd in ("/help", "help"):
         cmd_help()
+    elif cmd == "/ozan" or not cmd.startswith("/"):
+        msg = arg if cmd == "/ozan" else text.strip()
+        if _ozan is None:
+            send("Ozan bu bota bagli degil.")
+        elif not msg:
+            send("Ozan'a ne soyleyeyim? Ornek: <i>radyoda ne caliyor</i>")
+        else:
+            _ozan.ask(msg)
     else:
         send("Anlamadim. /menu yaz.")
 
@@ -495,7 +526,12 @@ def main():
     sp = spc.get_client()
     yt = ytc.get_client()
     print("Bot hazir. (Ctrl+C ile durdur)")
-    send("🤖 Bot aktif. /menu yaz.")
+    global _ozan
+    if os.path.exists("/var/lib/hermes/profiles/ozan"):
+        from dinleme.ozan_bot import OzanBridge
+        _ozan = OzanBridge(send_plain, send_typing)
+        _ozan.start()
+    send("🤖 Bot aktif. /menu yaz." + (" Ozan da burada: komut olmayan mesajlar ona gider." if _ozan else ""))
 
     offset = 0
     authorized = str(config.TELEGRAM_CHAT_ID)
