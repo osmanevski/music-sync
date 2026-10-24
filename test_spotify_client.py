@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 sys.modules.setdefault("spotipy", MagicMock())
 sys.modules.setdefault("spotipy.oauth2", MagicMock())
-sys.modules.setdefault("config", MagicMock())
+sys.modules.setdefault("dotenv", MagicMock())
 
 import spotify_client
 

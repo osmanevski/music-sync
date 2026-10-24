@@ -1,10 +1,10 @@
 import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 sys.modules.setdefault("spotipy", MagicMock())
 sys.modules.setdefault("spotipy.oauth2", MagicMock())
-sys.modules.setdefault("config", MagicMock())
+sys.modules.setdefault("dotenv", MagicMock())
 
 import sort_playlists
 
@@ -36,17 +36,17 @@ class TestFloatNewToTop(unittest.TestCase):
 
     def test_skips_protected_and_unlisted(self):
         sp = MagicMock()
-        sort_playlists.read_sort_ids = lambda: {"p1", "p2"}
-        snap = sort_playlists.float_new_to_top(sp, {"id": "p1", "name": "ϟ FIRTINA"}, [3], "s0")
-        snap2 = sort_playlists.float_new_to_top(sp, {"id": "zz", "name": "Diger"}, [3], "s0")
+        with patch.object(sort_playlists, "read_sort_ids", return_value={"p1", "p2"}):
+            snap = sort_playlists.float_new_to_top(sp, {"id": "p1", "name": "ϟ FIRTINA"}, [3], "s0")
+            snap2 = sort_playlists.float_new_to_top(sp, {"id": "zz", "name": "Diger"}, [3], "s0")
         self.assertEqual((snap, snap2), ("s0", "s0"))
         sp.playlist_reorder_items.assert_not_called()
 
     def test_reorders_and_returns_new_snapshot(self):
         sp = MagicMock()
         sp.playlist_reorder_items.return_value = {"snapshot_id": "s1"}
-        sort_playlists.read_sort_ids = lambda: {"p2"}
-        snap = sort_playlists.float_new_to_top(sp, {"id": "p2", "name": "Karmaşık Liste"}, [9], "s0")
+        with patch.object(sort_playlists, "read_sort_ids", return_value={"p2"}):
+            snap = sort_playlists.float_new_to_top(sp, {"id": "p2", "name": "Karmaşık Liste"}, [9], "s0")
         sp.playlist_reorder_items.assert_called_once_with(
             "p2", range_start=9, insert_before=0, range_length=1, snapshot_id="s0")
         self.assertEqual(snap, "s1")
