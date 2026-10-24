@@ -175,6 +175,15 @@ def sync_playlist(sp, yt, sp_playlist, force=False, dry_run=False, sync_deletes=
 
     # Durumu guncelle (dry_run'da DOKUNMAYIZ)
     if not dry_run:
+        # En yeni en uste: yalniz bu turda gelen sarkilar tasinir; reorder snapshot'i
+        # degistirir, yenisini kaydederiz ki sonraki tur listeyi bosuna taramasin.
+        if new_ids and not do_import:
+            try:
+                current_snap = sort_playlists.float_new_to_top(
+                    sp, sp_playlist, [t["pos"] for t in tracks if t["id"] in new_ids],
+                    current_snap)
+            except Exception as e:
+                print(f"  ! Siralama hatasi '{name}': {e}")
         db.set_track_state(pid, current_ids)
         db.set_snapshot(pid, current_snap, yt_playlist_id)
 
@@ -318,9 +327,6 @@ def main():
                           sync_deletes=not args.no_delete, do_import=args.do_import)
         if r:
             results.append(r)
-
-    # En yeni en uste: sort_watchlist.txt'teki listeleri added_at'e gore diz
-    sort_playlists.sort_targets(sp, targets, dry_run=args.dry_run)
 
     if not args.dry_run:
         print("\nBitti. Supheli eslesmeleri gormek icin: python review.py")

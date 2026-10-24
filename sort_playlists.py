@@ -1,6 +1,8 @@
 """
-Spotify listelerini added_at'e gore (en yeni en ustte) yeniden dizer.
-sync.py'den cagrilir; tek basina da calisir:
+Spotify listelerinde en yeni en ustte.
+Gunluk is: sync.py yeni sarki tespit ettiginde float_new_to_top() yalniz o sarkilari en uste
+tasir (yeni sarki basina bir istek, ayri tarama yok). Degismeyen listeye hic dokunulmaz.
+Tam yeniden dizme (added_at'e gore) yalniz elle:
     python sort_playlists.py --list            # sort_watchlist.txt'tekileri goster
     python sort_playlists.py --dry-run         # kac hamle gerekir
     python sort_playlists.py                   # sirala
@@ -15,8 +17,8 @@ import spotify_client as spc
 SORT_FILE = "sort_watchlist.txt"
 # Spotify, kısa sürede binlerce reorder isteğine saatlerce süren rate limit (Retry-After ~8 saat)
 # veriyor. Her çalışmada liste başına en fazla MAX_MOVES taşıma yapılır, aralarında PAUSE beklenir.
-# Taşımalar en üstten başladığı için yarım bırakılan sıralama da geçerlidir; kalan kısım sonraki
-# çalışmada (her gece sync sonunda) devam eder.
+# Taşımalar en üstten başladığı için yarım bırakılan sıralama da geçerlidir; kalan kısım bir
+# sonraki elle çalıştırmada devam eder.
 MAX_MOVES = int(os.environ.get("SORT_MAX_MOVES", "300"))
 PAUSE = float(os.environ.get("SORT_PAUSE_SECONDS", "0.3"))
 # Elle, anlamli bir sirayla dizilmis listeler: sort_watchlist.txt'e eklense bile asla siralanmaz.
@@ -68,6 +70,42 @@ def plan_moves(dates):
     return moves
 
 
+def plan_float_moves(new_positions):
+    """[(range_start, insert_before)] -- yeni ogeleri en uste tasir, en son eklenen en ustte.
+    Spotify yeni sarkiyi sona ekler; yeri buyuk olan daha yeni sayilir. Digerlerinin sirasi korunur."""
+    moves = []
+    shifted = sorted(new_positions)
+    if shifted == list(range(len(shifted))):
+        return moves  # zaten en ustteler (uygulama basa eklemis)
+    for i in range(len(shifted)):
+        j = shifted.pop()  # henuz tasinmamis en yeni
+        if j != i:
+            moves.append((j, i))
+        # j'nin ustundeki (i..j-1) ogeler bir asagi kayar
+        shifted = [p + 1 if i <= p < j else p for p in shifted]
+    return moves
+
+
+def float_new_to_top(sp, pl, new_positions, snapshot_id):
+    """sync.py hook'u: yeni eklenenleri en uste al. Doner: son snapshot_id (degismediyse ayni)."""
+    pid, name = pl["id"], pl["name"]
+    if pid not in read_sort_ids() or is_protected(name) or not new_positions:
+        return snapshot_id
+    moves = plan_float_moves(new_positions)
+    if not moves:
+        return snapshot_id
+    batch = moves[:MAX_MOVES]
+    snap = snapshot_id
+    for n, (j, i) in enumerate(batch):
+        if n:
+            time.sleep(PAUSE)
+        res = sp.playlist_reorder_items(pid, range_start=j, insert_before=i,
+                                        range_length=1, snapshot_id=snap)
+        snap = (res or {}).get("snapshot_id", snap)
+    print(f"  [SIRA] {len(batch)} yeni sarki en uste alindi.")
+    return snap
+
+
 def sort_playlist(sp, pl, dry_run=False):
     pid, name = pl["id"], pl["name"]
     if is_protected(name):
@@ -95,7 +133,7 @@ def sort_playlist(sp, pl, dry_run=False):
 
 
 def sort_targets(sp, playlists, dry_run=False):
-    """sync.py hook'u. Hata verirse senkronu bozmaz."""
+    """Elle tam siralama. Bir listede hata digerlerini durdurmaz."""
     ids = read_sort_ids()
     for pl in playlists:
         if pl["id"] not in ids:
