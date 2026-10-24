@@ -10,8 +10,8 @@ salt-okunur acar ve gece senkronunun kaydettigi son calisma logunu okur.
 
 Tek yazan alt komut `kaydet`tir ve yalniz root'un gece senkronu bittiginde
 (ExecStopPost) calistirmasi icindir: o calismanin journal'ini ve liste adlarini
-DURUM_DIR'e koyar. Liste adlari Spotify API'sinden degil, kimliksiz oEmbed'den
-gelir; Music Sync'in istek kotasina dokunmaz.
+DURUM_DIR'e koyar. Liste adlari YouTube Music kitapligindan tek okuma istegiyle
+gelir; Spotify'a ve Music Sync'in istek kotasina dokunmaz.
 """
 import json
 import os
@@ -20,7 +20,6 @@ import sqlite3
 import subprocess
 import sys
 import unicodedata
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 
@@ -50,13 +49,13 @@ def open_db(path=None):
 
 
 def playlist_names(durum_dir=None):
-    """yt_playlist_id -> ad. kaydet'in yazdigi listeler.json'dan."""
+    """yt_playlist_id -> ad. kaydet'in YouTube kitapligindan yazdigi listeler.json'dan."""
     f = Path(durum_dir or DURUM_DIR) / "listeler.json"
     try:
         data = json.loads(f.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return {v["yt"]: v.get("ad") or sp for sp, v in data.items() if v.get("yt")}
+    return {k: v for k, v in data.items() if isinstance(v, str)}
 
 
 def label(yt_id, names):
@@ -201,21 +200,30 @@ def cmd_bekleyen(liste=None, db=None, durum_dir=None):
 
 # --- kaydet (yalniz root, ExecStopPost) --------------------------------------
 
-def fetch_name(spotify_id, timeout=6):
-    url = ("https://open.spotify.com/oembed?url=https://open.spotify.com/playlist/" + spotify_id)
-    with urllib.request.urlopen(url, timeout=timeout) as r:
-        return json.loads(r.read().decode())["title"]
+def fetch_yt_titles():
+    """YouTube Music kitapligindaki liste adlari (tek okuma istegi; Spotify'a dokunmaz).
+    Music Sync YouTube listesini Spotify listesiyle ayni adla acar."""
+    sys.path.insert(0, str(HERE))
+    os.chdir(HERE)  # browser.json goreli yol
+    import ytmusic_client
+    yt = ytmusic_client.get_client()
+    return {p["playlistId"]: p.get("title") or "" for p in yt.get_library_playlists(limit=None)
+            if p.get("playlistId")}
 
 
-def cmd_kaydet(invocation_id, db=None, durum_dir=None, journal=None, fetch=fetch_name):
+def run_stamp(journal):
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})", journal or "")
+    return "-".join(m.groups()[:3]) + "-" + "".join(m.groups()[3:]) if m else datetime.now().strftime("%Y-%m-%d-%H%M")
+
+
+def cmd_kaydet(invocation_id, db=None, durum_dir=None, journal=None, fetch=fetch_yt_titles):
     d = Path(durum_dir or DURUM_DIR)
     d.mkdir(mode=0o755, parents=True, exist_ok=True)
     if journal is None:
         journal = subprocess.run(
             ["journalctl", f"_SYSTEMD_INVOCATION_ID={invocation_id}", "--no-pager", "-o", "short-iso"],
             capture_output=True, text=True, timeout=60).stdout
-    stamp = datetime.now().strftime("%Y-%m-%d-%H%M")
-    log = d / f"calisma-{stamp}.log"
+    log = d / f"calisma-{run_stamp(journal)}.log"
     tmp = log.with_suffix(".tmp")
     tmp.write_text(journal, encoding="utf-8")
     tmp.chmod(0o644)
@@ -223,27 +231,18 @@ def cmd_kaydet(invocation_id, db=None, durum_dir=None, journal=None, fetch=fetch
     for old in sorted(d.glob("calisma-*.log"))[:-LOG_KEEP]:
         old.unlink()
 
-    # Liste adlari: ag yoksa eski adi koru.
+    # Liste adlari: ag yoksa eskiyi koru, yeni gelenle birlestir.
     f = d / "listeler.json"
+    names = playlist_names(d)
     try:
-        old = json.loads(f.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        old = {}
-    with open_db(db) as conn:
-        pairs = conn.execute("SELECT spotify_playlist_id, yt_playlist_id FROM playlist_snapshots").fetchall()
-    new = {}
-    for sp, yt in pairs:
-        ad = (old.get(sp) or {}).get("ad")
-        try:
-            ad = fetch(sp)
-        except Exception:
-            pass
-        new[sp] = {"ad": ad, "yt": yt}
+        names.update({k: v for k, v in fetch().items() if v})
+    except Exception as e:  # ag/cerez sorunu kaydi bozmasin
+        print(f"liste adlari alinamadi, eskiler korundu: {e}", file=sys.stderr)
     tmp = f.with_suffix(".tmp")
-    tmp.write_text(json.dumps(new, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.write_text(json.dumps(names, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     tmp.chmod(0o644)
     tmp.replace(f)
-    return f"kaydedildi: {log.name}, {len(new)} liste adı"
+    return f"kaydedildi: {log.name}, {len(names)} liste adı"
 
 
 def main(argv):

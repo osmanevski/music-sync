@@ -48,10 +48,11 @@ class DurumTest(unittest.TestCase):
         self.db = self.dir / "sync.db"
         make_db(self.db)
         self.durum = self.dir / "durum"
-        names = {"SP53": "53", "SPKAR": "Karmaşık Liste"}
+        names = {"YT53": "53", "YTKAR": "Karmaşık Liste", "LM": "Liked Music"}
         out = durum.cmd_kaydet("inv", db=self.db, durum_dir=self.durum, journal=JOURNAL,
-                               fetch=lambda sp: names[sp])
-        self.assertIn("2 liste adı", out)
+                               fetch=lambda: names)
+        self.assertIn("3 liste adı", out)
+        self.assertTrue((self.durum / "calisma-2026-10-24-0300.log").exists())
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -98,11 +99,15 @@ class DurumTest(unittest.TestCase):
         self.assertIn("yok", durum.cmd_bekleyen("Karmaşık", db=self.db, durum_dir=self.durum))
 
     def test_kaydet_keeps_old_name_when_offline(self):
-        def offline(sp):
+        def offline():
             raise OSError("ağ yok")
         durum.cmd_kaydet("inv", db=self.db, durum_dir=self.durum, journal=JOURNAL, fetch=offline)
         data = json.loads((self.durum / "listeler.json").read_text(encoding="utf-8"))
-        self.assertEqual(data["SPKAR"]["ad"], "Karmaşık Liste")
+        self.assertEqual(data["YTKAR"], "Karmaşık Liste")
+
+    def test_old_format_names_ignored(self):
+        (self.durum / "listeler.json").write_text('{"SP1": {"ad": "x", "yt": "SP1"}}', encoding="utf-8")
+        self.assertEqual(durum.playlist_names(self.durum), {})
 
     def test_readonly_db(self):
         conn = durum.open_db(self.db)
@@ -113,7 +118,7 @@ class DurumTest(unittest.TestCase):
     def test_log_rotation(self):
         for i in range(20):
             (self.durum / f"calisma-2026-01-{i:02d}-0300.log").write_text("x")
-        durum.cmd_kaydet("inv", db=self.db, durum_dir=self.durum, journal=JOURNAL, fetch=lambda sp: "a")
+        durum.cmd_kaydet("inv", db=self.db, durum_dir=self.durum, journal=JOURNAL, fetch=lambda: {})
         self.assertEqual(len(list(self.durum.glob("calisma-*.log"))), durum.LOG_KEEP)
 
 
