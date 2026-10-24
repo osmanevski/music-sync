@@ -59,9 +59,12 @@ def replace_playlist(yt, state, title, ids):
     pid = state.get("playlist_id")
     pl = {"tracks": []}
     if pid:
+        # Okuma hatasi (ag/DNS) yeni liste acmaya donusmesin: yalniz liste gercekten yoksa olustur.
         try:
             pl = yt.get_playlist(pid, limit=None)
-        except Exception:
+        except Exception as e:
+            if "404" not in str(e) and "not found" not in str(e).lower():
+                raise
             pid = None
     if not pid:
         pid = yt.create_playlist(title, "Ozan (DJ) — Osman'ın son dinlediklerinden haftalık akış.",
